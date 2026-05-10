@@ -668,10 +668,13 @@
     background: var(--panel); color: var(--ink);
   }
   .profile-section textarea { resize: vertical; min-height: 60px; }
+  .profile-hint { margin-top: 4px; font-size: 11px; color: var(--muted); }
+  .profile-photo-row { display: flex; align-items: center; gap: 12px; }
+  .profile-photo-actions { display: flex; flex-direction: column; gap: 6px; }
   .profile-avatar-preview {
-    width: 48px; height: 48px; border-radius: 50%;
+    width: 72px; height: 72px; border-radius: 50%;
     object-fit: cover; border: 2px solid var(--line);
-    margin-bottom: 8px;
+    margin: 0; background: #f4ecd8;
   }
   .tab-bar { display: flex; gap: 4px; margin-bottom: 14px; }
   .tab-bar button {
@@ -729,9 +732,14 @@
       </div>
       <div id="panel-profile">
         <div class="profile-section">
-          <img class="profile-avatar-preview" id="profile-avatar-img" src="" alt="" hidden />
           <label>Username
-            <input type="text" id="profile-username" placeholder="Your display name" />
+            <input type="text" id="profile-username" autocomplete="username" placeholder="lowercase_name" />
+            <div class="profile-hint">Unique public handle. 3-24 chars: lowercase letters, numbers, underscores.</div>
+          </label>
+        </div>
+        <div class="profile-section">
+          <label>Display name
+            <input type="text" id="profile-display-name" autocomplete="name" placeholder="Your display name" />
           </label>
         </div>
         <div class="profile-section">
@@ -740,8 +748,15 @@
           </label>
         </div>
         <div class="profile-section">
-          <label>Avatar URL
-            <input type="text" id="profile-image" placeholder="https://..." />
+          <label>Photo
+            <div class="profile-photo-row">
+              <img class="profile-avatar-preview" id="profile-avatar-img" src="" alt="Profile photo preview" hidden />
+              <div class="profile-photo-actions">
+                <input type="file" id="profile-photo-file" accept="image/png,image/jpeg,image/webp,image/gif" />
+                <button class="btn" id="profile-photo-clear" type="button">Remove photo</button>
+              </div>
+            </div>
+            <input type="hidden" id="profile-image" />
           </label>
         </div>
         <div class="modal-foot">
@@ -801,8 +816,11 @@
           </button>
           <div class="auth-divider">or</div>
         </div>
-        <label>Name
-          <input id="auth-signup-name" type="text" autocomplete="name" placeholder="Your name" />
+        <label>Username
+          <input id="auth-signup-username" type="text" autocomplete="username" placeholder="lowercase_name" />
+        </label>
+        <label>Display name
+          <input id="auth-signup-name" type="text" autocomplete="name" placeholder="Your display name" />
         </label>
         <label>Email
           <input id="auth-signup-email" type="email" autocomplete="email" placeholder="you@example.com" />
@@ -5855,8 +5873,11 @@
     const panelProfile = document.getElementById('panel-profile');
     const panelSaves = document.getElementById('panel-saves');
     const profileUsername = document.getElementById('profile-username');
+    const profileDisplayName = document.getElementById('profile-display-name');
     const profileAbout = document.getElementById('profile-about');
     const profileImage = document.getElementById('profile-image');
+    const profilePhotoFile = document.getElementById('profile-photo-file');
+    const profilePhotoClear = document.getElementById('profile-photo-clear');
     const profileAvatarImg = document.getElementById('profile-avatar-img');
     const profileSaveBtn = document.getElementById('profile-save');
     const profileStatus = document.getElementById('profile-status');
@@ -5920,6 +5941,7 @@
       if (p && p.id) {
         userProfile = p;
         profileUsername.value = p.username || '';
+        profileDisplayName.value = p.displayName || p.username || '';
         profileAbout.value = p.about || '';
         profileImage.value = p.image || '';
         if (p.image) {
@@ -5929,18 +5951,51 @@
       }
     }
 
-    profileImage.addEventListener('input', () => {
-      const url = profileImage.value.trim();
-      if (url) { profileAvatarImg.src = url; profileAvatarImg.hidden = false; }
-      else { profileAvatarImg.hidden = true; }
+    function syncAvatarPreview() {
+      const image = profileImage.value.trim();
+      if (image) { profileAvatarImg.src = image; profileAvatarImg.hidden = false; }
+      else { profileAvatarImg.removeAttribute('src'); profileAvatarImg.hidden = true; }
+    }
+
+    profilePhotoFile.addEventListener('change', () => {
+      const file = profilePhotoFile.files && profilePhotoFile.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        profileStatus.textContent = 'Please choose an image file';
+        profilePhotoFile.value = '';
+        return;
+      }
+      if (file.size > 500 * 1024) {
+        profileStatus.textContent = 'Photo must be under 500KB';
+        profilePhotoFile.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        profileImage.value = String(reader.result || '');
+        syncAvatarPreview();
+        profileStatus.textContent = 'Photo ready — save profile to keep it';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    profilePhotoClear.addEventListener('click', () => {
+      profileImage.value = '';
+      profilePhotoFile.value = '';
+      syncAvatarPreview();
     });
 
     profileSaveBtn.addEventListener('click', async () => {
-      const username = profileUsername.value.trim();
+      const username = profileUsername.value.trim().toLowerCase();
+      const displayName = profileDisplayName.value.trim();
       if (!username) { profileStatus.textContent = 'Username required'; return; }
+      if (!/^[a-z0-9_]{3,24}$/.test(username)) { profileStatus.textContent = 'Username must be 3-24 lowercase letters, numbers, underscores'; return; }
+      if (!displayName) { profileStatus.textContent = 'Display name required'; return; }
+      profileUsername.value = username;
       profileStatus.textContent = 'Saving...';
       const result = await apiCall('/api/profile', 'PUT', {
         username,
+        displayName,
         about: profileAbout.value.trim(),
         image: profileImage.value.trim(),
       });
@@ -6128,13 +6183,16 @@
     // Signup
     document.getElementById('auth-signup-btn').addEventListener('click', async () => {
       const btn = document.getElementById('auth-signup-btn');
+      const username = document.getElementById('auth-signup-username').value.trim().toLowerCase();
       const name = document.getElementById('auth-signup-name').value.trim();
       const email = document.getElementById('auth-signup-email').value.trim();
       const password = document.getElementById('auth-signup-password').value;
+      if (!/^[a-z0-9_]{3,24}$/.test(username)) { showError('Username must be 3-24 lowercase letters, numbers, underscores.'); return; }
+      if (!name) { showError('Please enter a display name.'); return; }
       if (!email || !password) { showError('Please enter an email and password.'); return; }
       setLoading(btn, true);
       try {
-        const user = await Auth.signup(email, password, { full_name: name });
+        const user = await Auth.signup(email, password, { full_name: name, username, display_name: name });
         if (user.emailVerified) {
           enterApp();
         } else {
