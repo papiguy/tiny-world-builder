@@ -4340,9 +4340,11 @@
     }
     // First time this root is asked to reveal — assign a small random
     // delay so neighbouring pieces stagger in rather than popping as a
-    // single block.
+    // single block. Also mark it so tickOpacityTransitions plays a
+    // quiet rustle the moment it actually starts fading in.
     if (!immediate && opacity > 0 && (prevTarget === undefined || prevTarget <= 0) && (root.userData.currentOpacity || 0) <= 0) {
       root.userData.revealDelay = Math.random() * 0.55;
+      root.userData.pendingRevealSfx = true;
     }
   }
 
@@ -4366,6 +4368,15 @@
           if (Math.abs(root.scale.x - s) > 0.001) root.scale.setScalar(s);
         }
         continue;
+      }
+      // Delay just elapsed — fire the reveal SFX exactly once per cell.
+      // The internal SFX_MIN_GAP keeps cascades tasteful when many cells
+      // start fading in at the same time.
+      if (root.userData.pendingRevealSfx && targetOpacity > current && typeof playSfx === 'function') {
+        const role = root.userData.fadeRole;
+        if (role === 'object') playSfx('land', 0.22);
+        else playSfx('rustle', 0.18);
+        root.userData.pendingRevealSfx = false;
       }
 
       const next = current + (targetOpacity - current) * step;
