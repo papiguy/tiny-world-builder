@@ -1893,8 +1893,26 @@
     return (n.n ? 1 : 0) + (n.s ? 1 : 0) + (n.e ? 1 : 0) + (n.w ? 1 : 0);
   }
 
-  function makeRock(neighbors, level = 1, seedX = 0, seedZ = 0) {
+  function makeRock(neighbors, level = 1, seedX = 0, seedZ = 0, inWater = false) {
     const g = new THREE.Group();
+    if (inWater) {
+      // Rocks dropped in water sink slightly and get a darker ring
+      // where they break the surface. The whole group is offset down
+      // so the stones sit lower; the ring stays at tile-top y = 0.
+      g.userData.waterSunk = true;
+      const sink = 0.07;
+      g.position.y -= 0; // ring math runs in local space below
+      const ringInner = 0.18;
+      const ringOuter = 0.46;
+      const ringGeo = new THREE.RingGeometry(ringInner, ringOuter, 18);
+      const ringMat = new THREE.MeshLambertMaterial({ color: 0x1c4a78, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.002; // just above tile top so it doesn't z-fight
+      g.add(ring);
+      // Shift the actual stone subgroup down so they appear partly submerged.
+      g.userData.waterSinkY = sink;
+    }
     const n = neighbors || { n: false, s: false, e: false, w: false };
     const links = countNeighbors(n);
     const extra = Math.max(0, Math.min(MAX_FLOORS, level || 1) - 1);
@@ -1992,7 +2010,17 @@
       g.add(chip);
     }
 
-    g.userData = { kind: 'rock', neighborCount: links };
+    // Water rocks: sink every mesh (except the ring marker on top of
+    // the water surface) by waterSinkY so they appear partly submerged.
+    if (g.userData && g.userData.waterSunk) {
+      const sink = g.userData.waterSinkY || 0.07;
+      for (const child of g.children) {
+        if (child.geometry && child.geometry.type === 'RingGeometry') continue;
+        child.position.y -= sink;
+      }
+    }
+
+    g.userData = Object.assign(g.userData || {}, { kind: 'rock', neighborCount: links });
     castReceive(g);
     return g;
   }
@@ -3905,6 +3933,32 @@
     obj.userData.landing = true;
     dropAnims.push({ obj, baseY, distance, t: -delay, dur, easing });
   }
+  function dustCountForMesh(obj) {
+    if (!obj) return 3;
+    const k = obj.userData && obj.userData.kind;
+    let base = 3; // tiles + unknown
+    if (k === 'tuft')                                                                        base = 1;
+    else if (k === 'crop' || k === 'corn' || k === 'wheat' || k === 'carrot' || k === 'sunflower' || k === 'pumpkin') base = 2;
+    else if (k === 'tree')                                                                   base = 3;
+    else if (k === 'bridge')                                                                 base = 2;
+    else if (k === 'fence')                                                                  base = 3;
+    else if (k === 'rock')                                                                   base = 5;
+    else if (k === 'house') {
+      const bt = obj.userData.buildingType;
+      if (bt === 'skyscraper')                                base = 12;
+      else if (bt === 'manor' || bt === 'tower' || bt === 'turret') base = 8;
+      else                                                    base = 5;
+    }
+    const floors = (obj.userData && (obj.userData.level || obj.userData.floors)) || 1;
+    return Math.min(20, Math.max(1, base + Math.max(0, floors - 1)));
+  }
+
+  function emitImpactDust(obj) {
+    if (!obj) return;
+    const n = dustCountForMesh(obj);
+    spawnDustBurst(obj.position.x, obj.position.y, obj.position.z, n);
+  }
+
   function tickDropAnims(dt) {
     for (let i = dropAnims.length - 1; i >= 0; i--) {
       const a = dropAnims[i];
@@ -3915,6 +3969,7 @@
       if (u >= 1) {
         a.obj.position.y = a.baseY;
         a.obj.userData.landing = false;
+        emitImpactDust(a.obj);
         dropAnims.splice(i, 1);
       }
     }
@@ -4301,7 +4356,7 @@
     let setGridUserData = true;
 
     if      (kind === 'tree')      mesh = makeTree();
-    else if (kind === 'rock')      mesh = makeRock(getRockNeighbors(x, z), level, x, z);
+    else if (kind === 'rock')      mesh = makeRock(getRockNeighbors(x, z), level, x, z, world[x][z].terrain === 'water');
     else if (kind === 'bridge')    mesh = makeBridge(getBridgeOrientation(x, z));
     else if (kind === 'tuft')      mesh = makeTuft();
     else if (kind === 'crop')      mesh = makeCrop();
@@ -4334,10 +4389,10 @@
       if (!cluster.isAnchor) return;          // non-anchor cluster cells render nothing
       if (cluster.kind === 'turret') {
         mesh = makeTurret(floors);
-      } else if (cluster.kind === 'solo' && !bType && floors >= 4) {
-        // Auto-promote tall solo houses (no manual buildingType) into a high-rise.
-        mesh = makeSkyscraper(floors);
       } else if (cluster.kind === 'solo') {
+        // Residential / cottage houses keep their own look as you stack
+        // floors — makeHouse handles tall counts. Skyscrapers are an
+        // explicit variant from the flyout, not an auto-promotion.
         mesh = makeHouse(floors);
       } else if (cluster.kind === 'linear') {
         mesh = makeStretchedHouse(cluster.length, cluster.orientation, floors);
@@ -4371,6 +4426,13 @@
     if (posX === null) {
       const p = tilePos(x, z);
       posX = p.x; posZ = p.z;
+    }
+    // Uneven natural objects get a random 90° rotation per cell so the
+    // same kind doesn't look identical in every tile. Deterministic on
+    // (x, z) via cellRand so re-renders keep the same orientation.
+    if (kind === 'rock' || kind === 'tree' || kind === 'tuft') {
+      const r = Math.floor(cellRand(x, z, 71) * 4); // 0..3
+      mesh.rotation.y += r * (Math.PI / 2);
     }
     const objectY = TOP_H + terrainRiseAt(x, z);
     mesh.position.set(posX, objectY, posZ);
@@ -5823,8 +5885,7 @@
   // The new rock/fence drops in on top during step 1/2 via setCell's
   // existing drop-in animation.
   const squashAnims = [];
-  function spawnDustBurst(x, y, z) {
-    const count = 14;
+  function spawnDustBurst(x, y, z, count = 14) {
     for (let i = 0; i < count; i++) {
       if (smokeParticles.length >= MAX_SMOKE_PARTICLES) break;
       const d = new THREE.Mesh(smokeGeo, smokeMat.clone());
@@ -5847,21 +5908,41 @@
   }
 
   function squashExistingObject(x, z) {
-    const key = x + ',' + z;
-    const entry = cellMeshes[key];
+    // For house clusters the visible mesh sits on the cluster anchor,
+    // not the clicked cell. Find the anchor so we squash the right
+    // mesh; for everything else the clicked cell IS the mesh cell.
+    let meshKey = x + ',' + z;
+    const cell = world[x] && world[x][z];
+    if (cell && cell.kind === 'house' && typeof findHouseCluster === 'function') {
+      const cluster = findHouseCluster(x, z);
+      if (cluster) meshKey = cluster.anchorX + ',' + cluster.anchorZ;
+    }
+    const entry = cellMeshes[meshKey];
     if (!entry || !entry.object) return;
     const old = entry.object;
+
     // Detach from cellMeshes — we own the mesh from here on; setCell's
     // renderCellObject won't try to dispose it.
     entry.object = null;
+
+    // Remove from the opacity tick system so its baseOpacity *
+    // displayOpacity doesn't reset our fade to 1 every frame.
+    opacityRoots.delete(old);
+    // Wipe baseOpacity on every child so any stray opacity pass leaves
+    // the material alone.
+    old.traverse(o => { if (o.isMesh) o.userData.baseOpacity = undefined; });
+    // Make sure the mesh isn't still tweening downward from a drop-in.
+    old.userData.landing = false;
 
     // Random 5–10° in 1° increments, with random sign.
     const deg = (5 + Math.floor(Math.random() * 6)) * (Math.random() < 0.5 ? -1 : 1);
     old.rotation.y += (deg * Math.PI) / 180;
 
-    // Capture base scale, then squash flat with a 10% XZ oversize.
+    // Capture base scale, then squash flat with a 10% XZ oversize. A
+    // tiny but visible Y so the pancake reads as a flattened remnant
+    // (0.08 of original) — totally flat looks like a missing object.
     const baseSx = old.scale.x, baseSy = old.scale.y, baseSz = old.scale.z;
-    old.scale.set(baseSx * 1.1, Math.max(0.005, baseSy * 0.02), baseSz * 1.1);
+    old.scale.set(baseSx * 1.1, Math.max(0.04, baseSy * 0.08), baseSz * 1.1);
     // Nudge up slightly so the squashed pancake doesn't z-fight the tile top.
     old.position.y = (old.userData.baseY || old.position.y) + 0.005;
 
