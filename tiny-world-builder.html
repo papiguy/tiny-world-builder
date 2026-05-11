@@ -3181,13 +3181,7 @@
     }
 
     if (level === 1) {
-      // Speed bump — single low rounded slab across the road.
-      const bump = new THREE.Mesh(
-        roundedBox(spanAlongX ? 0.92 : 0.18, 0.07, spanAlongX ? 0.18 : 0.92, 0.04),
-        M.bridgeWoodD || M.path
-      );
-      bump.position.y = 0.04;
-      g.add(bump);
+      // Level 1 keeps just the zebra stripes — no speed bump.
     } else if (level === 2) {
       // Two short pillars flanking the crossing.
       const pillarMat = M.castleStone || M.fenceSteel;
@@ -4063,6 +4057,7 @@
   // amplitude falls off with distance and whose phase lags so the
   // shockwave propagates outward visibly.
   const rippleAnims = [];
+  const rippleTileOwner = new Map(); // tile -> active rippleAnim entry
   function triggerRipple(originX, originZ, mass) {
     if (!mass || mass < 2) return;
     const radius = Math.min(3, Math.max(1, Math.round(mass / 3)));
@@ -4075,16 +4070,30 @@
       if (dist > radius) continue;
       const tile = cellMeshes[key].tile;
       if (!tile || (tile.userData && tile.userData.landing)) continue;
+      // Inherit the true rest Y from any in-flight ripple on this
+      // tile — otherwise we'd capture the displaced position and
+      // leave the tile permanently offset when the new ripple ends.
+      let restY = tile.position.y;
+      const prev = rippleTileOwner.get(tile);
+      if (prev) {
+        restY = prev.baseY;
+        const idx = rippleAnims.indexOf(prev);
+        if (idx >= 0) rippleAnims.splice(idx, 1);
+      }
+      // Snap the tile to its rest position before kicking off the new wave.
+      tile.position.y = restY;
       const falloff = 1 - (dist - 1) / Math.max(1, radius); // 1 at dist=1, decays outward
-      rippleAnims.push({
+      const anim = {
         tile,
-        baseY: tile.position.y,
+        baseY: restY,
         amp: baseAmp * Math.max(0.15, falloff),
         dur: 0.55 + dist * 0.10,
         t: 0,
         phaseDelay: dist * 0.04,
         freq: 11 - dist * 1.2,
-      });
+      };
+      rippleAnims.push(anim);
+      rippleTileOwner.set(tile, anim);
     }
   }
 
@@ -4095,13 +4104,16 @@
       r.t += dt;
       if (r.t >= r.dur || (r.tile.userData && r.tile.userData.landing)) {
         r.tile.position.y = r.baseY;
+        rippleTileOwner.delete(r.tile);
         rippleAnims.splice(i, 1);
         continue;
       }
       const u = r.t / r.dur;
       const damp = (1 - u) * (1 - u);
       const phaseT = Math.max(0, r.t - r.phaseDelay);
-      const wave = Math.sin(phaseT * r.freq) * r.amp * damp;
+      // Negative sine so the compression wave pushes tiles DOWN
+      // first, then rebounds up — reads as a real impact.
+      const wave = -Math.sin(phaseT * r.freq) * r.amp * damp;
       r.tile.position.y = r.baseY + wave;
     }
   }
@@ -4617,7 +4629,13 @@
   // Build the secondary decorations (tufts / fences) that live alongside
   // the cell's main `kind`. Extras stay smaller and live near the edge
   // of the tile so they read as add-ons rather than the main occupant.
-  function renderCellExtras(x, z) {
+  //
+  // opts.animateFrom: index of the first extra to drop-in. Extras
+  // before this index appear instantly (used when an adjacency
+  // re-render forces a full rebuild but we don't want existing
+  // decorations to bounce again).
+  function renderCellExtras(x, z, opts) {
+    const animateFrom = (opts && typeof opts.animateFrom === 'number') ? opts.animateFrom : Infinity;
     const key = x + ',' + z;
     let entry = cellMeshes[key];
     if (!entry) entry = cellMeshes[key] = { tile: null, object: null, extras: [] };
@@ -4660,7 +4678,7 @@
       prepareFadeable(mesh, { opacity: opacityAtWorldPosition(mesh.position.x, mesh.position.z), grayscale: isOutsideHomeGrid(x, z) });
       worldGroup.add(mesh);
       entry.extras.push(mesh);
-      animateDrop(mesh, 1.6, 0.42, 0.04 * i, easeOutBack);
+      if (i >= animateFrom) animateDrop(mesh, 1.6, 0.42, 0.04 * (i - animateFrom), easeOutBack);
     });
   }
 
@@ -4671,23 +4689,27 @@
     // De-dupe identical fence sides; level them up instead.
     if (extra.kind === 'fence') {
       const side = normalizeFenceSide(extra.fenceSide);
-      const existing = cell.extras.find(e => e.kind === 'fence' && normalizeFenceSide(e.fenceSide) === side);
-      if (existing) {
-        existing.floors = Math.min((existing.floors || 1) + 1, MAX_FLOORS);
-        renderCellExtras(x, z);
+      const existingIdx = cell.extras.findIndex(e => e.kind === 'fence' && normalizeFenceSide(e.fenceSide) === side);
+      if (existingIdx >= 0) {
+        cell.extras[existingIdx].floors = Math.min((cell.extras[existingIdx].floors || 1) + 1, MAX_FLOORS);
+        // Animate just the one that changed — existing siblings stay put.
+        renderCellExtras(x, z, { animateFrom: existingIdx });
         saveState();
         return;
       }
     }
+    const newIdx = cell.extras.length;
     cell.extras.push(Object.assign({ floors: 1 }, extra));
-    renderCellExtras(x, z);
+    // Animate only the newly-added entry; everything before it
+    // re-mounts at its resting position without a drop.
+    renderCellExtras(x, z, { animateFrom: newIdx });
     saveState();
   }
 
   function popCellExtra(x, z) {
     if (!world[x] || !world[x][z] || !world[x][z].extras || !world[x][z].extras.length) return false;
     world[x][z].extras.pop();
-    renderCellExtras(x, z);
+    renderCellExtras(x, z); // no animation — surviving extras stay put
     saveState();
     return true;
   }
@@ -5917,6 +5939,7 @@
           terrainFloors: 1,
           kind: null,
           floors: 1,
+          extras: [], // also drop any decorative tufts / fences
           tileDelay: (x + z) * TILE_STAGGER,
           forceTile: true,
         });
