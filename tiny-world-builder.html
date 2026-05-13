@@ -3325,6 +3325,22 @@
         <textarea id="gen-prompt" rows="3" placeholder="a small fishing village by a river, a crop field next to two cottages, rocky outcrops on edges"></textarea>
       </label>
 
+      <div class="gen-section" data-section="size">
+        <div class="gen-section-head">
+          <span class="gen-section-title">Board size</span>
+        </div>
+        <label>Home board
+          <select id="gen-grid-size">
+            <option value="8">8 × 8</option>
+            <option value="12">12 × 12</option>
+            <option value="16">16 × 16</option>
+            <option value="20">20 × 20</option>
+            <option value="32">32 × 32</option>
+            <option value="48">48 × 48</option>
+          </select>
+        </label>
+      </div>
+
       <div class="gen-section" data-section="seed">
         <div class="gen-section-head">
           <span class="gen-section-title">Seed</span>
@@ -13001,11 +13017,14 @@
     '- Prefer 3–5 clear assembled features over scattering many single unrelated cells. Make the construction legible from the default isometric camera.',
   ].join('\n');
 
-  function buildSystemPrompt() {
+  function buildSystemPrompt(gridSize) {
+    const size = HOME_GRID_OPTIONS.includes(gridSize) ? gridSize : GRID;
+    const maxCoord = size - 1;
     return [
-      'You are a level designer and low-poly primitive assembler for the Tiny World Builder, an 8x8 isometric voxel scene.',
+      'You are a level designer and low-poly primitive assembler for the Tiny World Builder, a ' + size + 'x' + size + ' isometric voxel scene.',
       'Output a JSON object that strictly matches the provided JSON Schema. Do not include prose, markdown fences, or explanations — only the JSON object.',
-      'Grid coordinates: x in 0..7 (left-right), z in 0..7 (front-back). Default cell is grass with no object.',
+      'Required home board edge length: include "gridSize": ' + size + ' in the JSON object.',
+      'Grid coordinates: x in 0..' + maxCoord + ' (left-right), z in 0..' + maxCoord + ' (front-back). Default cell is grass with no object.',
       'Only emit cells that differ from defaults — the renderer fills the rest.',
       'Houses cluster automatically when buildingType is null: adjacent houses merge into linear, L/T/+, or 2x2 forms. To force a single-cell variant set buildingType to cottage|manor|tower|skyscraper.',
       'Buildings must sit directly on flat grass or dirt. Do not put houses on path, water, lava, raised terrain, decks, bridges, platforms, posts, or stilts.',
@@ -13242,7 +13261,7 @@
   // Item 4 — procedural map generator (offline, deterministic). Emits a
   // v=4 world directly from seed + biome composition + elevation profile.
   // Ports the *concept* of OWB's biome / elevation / scatter pipeline
-  // into tinyworld's 8x8 schema without touching the render pipeline.
+  // into tinyworld's selected grid schema without touching the render pipeline.
   // Algorithm:
   //   1. Two Mulberry32-derived noise fields (terrain & elevation) sampled
   //      per (x,z) on the home grid plus a small smoothing pass for
@@ -13253,8 +13272,8 @@
   //      then assign terrainFloors (plains=1, hills=2..3, mountains=4..7).
   //   4. Place settlement cells with cluster-friendly hints so houses
   //      auto-promote when adjacent (handled by setCell's clustering).
-  function generateProceduralWorld({ seed, biomes, elevation }) {
-    const size = GRID;
+  function generateProceduralWorld({ seed, biomes, elevation, gridSize }) {
+    const size = HOME_GRID_OPTIONS.includes(gridSize) ? gridSize : GRID;
     const rng = makeMulberry32(seed || randomSeed());
 
     // ---- fbm value noise (OWB-style coherent terrain) ----------------
@@ -13551,8 +13570,9 @@
   // Expose for tests / command palette.
   window.__generateProceduralWorld = generateProceduralWorld;
 
-  async function generateWorld(provider, model, key, userPrompt) {
-    const system = buildSystemPrompt();
+  async function generateWorld(provider, model, key, userPrompt, gridSize) {
+    const requestedGridSize = HOME_GRID_OPTIONS.includes(gridSize) ? gridSize : GRID;
+    const system = buildSystemPrompt(requestedGridSize);
     const def = AI_DEFAULTS[provider];
     if (!def) throw new Error('unknown provider: ' + provider);
     let raw;
@@ -13568,6 +13588,7 @@
       throw new Error('response was not parseable JSON');
     }
     normalizeWorldCells(parsed);
+    if (HOME_GRID_OPTIONS.includes(requestedGridSize)) parsed.gridSize = requestedGridSize;
     const err = validateWorld(parsed);
     if (err) {
       console.warn('[generate] failed schema check:', err, parsed);
@@ -13671,6 +13692,7 @@
   // by proportionally rebalancing the other rows when one row moves.
   const GEN_LS = {
     seed: 'tinyworld:gen:seed',
+    gridSize: 'tinyworld:gen:gridSize',
     biomes: 'tinyworld:gen:biomes.v1',
     elevation: 'tinyworld:gen:elevation.v1',
     disableAutofill: 'tinyworld:gen:disableAutofill',
@@ -13786,6 +13808,7 @@
     const seedRandomBtn = document.getElementById('gen-seed-random');
     const seedCopyBtn = document.getElementById('gen-seed-copy');
     const seedPasteBtn = document.getElementById('gen-seed-paste');
+    const gridSizeEl = document.getElementById('gen-grid-size');
     const disableAutofillEl = document.getElementById('gen-disable-autofill');
     const proceduralEl = document.getElementById('gen-procedural');
     if (proceduralEl) proceduralEl.checked = localStorage.getItem('tinyworld:gen:procedural') === '1';
@@ -13801,6 +13824,15 @@
     let elevState = genReadElevation();
     if (disableAutofillEl) disableAutofillEl.checked = localStorage.getItem(GEN_LS.disableAutofill) === '1';
     if (seedEl) seedEl.value = localStorage.getItem(GEN_LS.seed) || '';
+    if (gridSizeEl) {
+      const storedGridSize = parseInt(localStorage.getItem(GEN_LS.gridSize) || '', 10);
+      gridSizeEl.value = String(HOME_GRID_OPTIONS.includes(storedGridSize) ? storedGridSize : GRID);
+    }
+
+    function selectedGenGridSize() {
+      const value = gridSizeEl ? parseInt(gridSizeEl.value, 10) : GRID;
+      return HOME_GRID_OPTIONS.includes(value) ? value : GRID;
+    }
 
     function paintSliders(group, state, slidersEl, sumEl) {
       let total = 0;
@@ -13882,9 +13914,15 @@
         try { localStorage.setItem(GEN_LS.disableAutofill, disableAutofillEl.checked ? '1' : '0'); } catch (_) {}
       });
     }
+    if (gridSizeEl) {
+      gridSizeEl.addEventListener('change', () => {
+        try { localStorage.setItem(GEN_LS.gridSize, String(selectedGenGridSize())); } catch (_) {}
+      });
+    }
 
     window.__genState = () => ({
       seed: seedEl ? seedEl.value : '',
+      gridSize: selectedGenGridSize(),
       biomes: { ...biomeState },
       elevation: { ...elevState },
       planFirst: false,
@@ -14055,6 +14093,10 @@
       providerEl.value = lastProvider;
       loadProviderState();
       promptEl.value = localStorage.getItem(AI_LS.prompt) || promptEl.value;
+      if (gridSizeEl) {
+        const storedGridSize = parseInt(localStorage.getItem(GEN_LS.gridSize) || '', 10);
+        gridSizeEl.value = String(HOME_GRID_OPTIONS.includes(storedGridSize) ? storedGridSize : GRID);
+      }
       setStatus('');
       openTinyModal(modal, promptEl);
     }
@@ -14098,10 +14140,12 @@
       modelEl.value = model;
       const key = keyEl.value.trim() || localStorage.getItem(AI_LS.key(provider)) || '';
       const seed = (seedEl && seedEl.value.trim()) || '';
+      const gridSize = selectedGenGridSize();
       const biomes = { ...biomeState };
       const elevation = { ...elevState };
       const procedural = !!(proceduralEl && proceduralEl.checked);
       const disableAutofill = !!(disableAutofillEl && disableAutofillEl.checked);
+      try { localStorage.setItem(GEN_LS.gridSize, String(gridSize)); } catch (_) {}
 
       // Procedural path — bypass the LLM entirely.
       if (procedural) {
@@ -14111,7 +14155,7 @@
         setStatus('generating offline…', 'busy');
         try {
           applyGenerationAutofillSetting(disableAutofill);
-          const data = generateProceduralWorld({ seed: effectiveSeed, biomes, elevation });
+          const data = generateProceduralWorld({ seed: effectiveSeed, biomes, elevation, gridSize });
           const err = (typeof validateWorld === 'function') ? validateWorld(data) : null;
           if (err) throw new Error('procedural schema: ' + err);
           if (typeof applyState === 'function' && !applyState(data, { sliced: true })) {
@@ -14134,7 +14178,7 @@
       close();
       progress.update('Preparing generation settings…');
       progress.say(
-        'Settings: ' + GRID + 'x' + GRID + ' grid, seed ' + (seed || 'random') +
+        'Settings: ' + gridSize + 'x' + gridSize + ' grid, seed ' + (seed || 'random') +
         ', JSON layout model ' + model +
         ', image generation off' +
         ', outside auto-fill ' + (disableAutofill ? 'off' : 'on') + '.'
@@ -14156,7 +14200,8 @@
       // choices so re-runs of the same seed produce consistent worlds.
       const decoratedPrompt = (
         'User intent: ' + promptRaw + '\n\n' +
-        'Composition (target percentages across the 8x8 grid, sum=100):\n' +
+        'Board size: ' + gridSize + 'x' + gridSize + '. The JSON must include "gridSize": ' + gridSize + ' and all home-board cells must use x/z coordinates from 0 to ' + (gridSize - 1) + '.\n\n' +
+        'Composition (target percentages across the ' + gridSize + 'x' + gridSize + ' grid, sum=100):\n' +
         Object.entries(biomes).map(([k,v]) => '  ' + k + ': ' + v + '%').join('\n') + '\n\n' +
         'Elevation profile (terrainFloors stack distribution, sum=100):\n' +
         '  plains (terrainFloors=1): ' + elevation.plains + '%\n' +
@@ -14183,7 +14228,7 @@
       try {
         hidePlanOverlay();
         progress.say('Generating validated world JSON with ' + model + '…');
-        const data = await generateWorld(provider, model, key, decoratedPrompt);
+        const data = await generateWorld(provider, model, key, decoratedPrompt, gridSize);
         const receivedCells = data && Array.isArray(data.cells) ? data.cells.length : 0;
         progress.say('Received JSON with ' + receivedCells + ' cells. Switching back to perspective and slicing the build into terrain, then objects.');
         hidePlanOverlay();
@@ -16953,9 +16998,10 @@
         try {
           const state = (typeof window.__genState === 'function') ? window.__genState() : null;
           const seed = (state && state.seed) || randomSeed();
+          const gridSize = (state && state.gridSize) || GRID;
           const biomes = (state && state.biomes) || { grass: 55, forest: 20, water: 10, dirt: 10, settlement: 5 };
           const elevation = (state && state.elevation) || { plains: 55, hills: 30, mountains: 15 };
-          const data = generateProceduralWorld({ seed, biomes, elevation });
+          const data = generateProceduralWorld({ seed, biomes, elevation, gridSize });
           applyState(data);
         } catch (err) { console.warn('[palette] procedural failed:', err); }
       } });
