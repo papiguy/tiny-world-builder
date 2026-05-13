@@ -325,27 +325,27 @@
   .audio-row input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 14px;
+    width: 18px;
     height: 14px;
     margin-top: -5px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.65);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 1px 0 rgba(255, 255, 255, 0.95) inset,
       0 1px 2px rgba(20, 30, 50, 0.18);
     backdrop-filter: blur(10px) saturate(180%);
     -webkit-backdrop-filter: blur(10px) saturate(180%);
     cursor: pointer;
   }
   .audio-row input[type="range"]::-moz-range-thumb {
-    width: 14px;
+    width: 18px;
     height: 14px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.65);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.9) inset,
+      0 1px 0 rgba(255, 255, 255, 0.95) inset,
       0 1px 2px rgba(20, 30, 50, 0.18);
     cursor: pointer;
   }
@@ -785,7 +785,9 @@
   .toolbar .tool:has(.swatch.select),
   .toolbar .tool:has(.swatch.eraser) {
     width: 44px;
+    height: 44px;
     padding: 0;
+    border-radius: 12px;
   }
   .toolbar .tool:has(.swatch.select) .swatch,
   .toolbar .tool:has(.swatch.eraser) .swatch {
@@ -1166,6 +1168,51 @@
     color: var(--ink);
   }
   .agent-panel.collapsed .agent-panel-head { display: none; }
+  /* Selection preview — replaces the messages stream when something on
+     the canvas is selected. */
+  .agent-selection-preview {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid rgba(120, 130, 150, 0.12);
+  }
+  .agent-selection-preview[hidden] { display: none; }
+  .agent-panel.collapsed .agent-selection-preview { display: none; }
+  .agent-selection-count {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .agent-selection-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12px;
+    color: var(--ink);
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .agent-selection-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.45);
+    border-radius: 8px;
+  }
+  .agent-selection-list li .count {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .agent-selection-hint {
+    font-size: 11px;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .agent-panel.has-selection .agent-messages { display: none; }
   .agent-panel-toggle {
     width: 26px;
     height: 26px;
@@ -1349,11 +1396,15 @@
     appearance: none;
     width: 100%;
     height: 14px;
-    background: transparent;
-    border: none;
-    padding: 0;
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
     outline: none;
     cursor: pointer;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-radius: 0 !important;
   }
   .modal-card input[type="range"]::-webkit-slider-runnable-track,
   .settings-panel input[type="range"]::-webkit-slider-runnable-track,
@@ -1382,11 +1433,11 @@
   .gen-slider-row input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    margin-top: -6px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.7);
+    width: 18px;
+    height: 14px;
+    margin-top: -5px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.7);
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.95) inset,
@@ -1400,10 +1451,10 @@
   .range-row input[type="range"]::-moz-range-thumb,
   .time-row input[type="range"]::-moz-range-thumb,
   .gen-slider-row input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.7);
+    width: 18px;
+    height: 14px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.7);
     box-shadow:
       0 1px 0 rgba(255, 255, 255, 0.95) inset,
@@ -2087,9 +2138,54 @@
     justify-content: space-between;
     gap: 12px;
   }
-  .check-row input {
-    width: 18px;
-    height: 18px;
+  /* Style checkboxes inside settings as iOS-style toggle switches with a
+     rounded-rectangle knob (matches the slider thumb language). */
+  .check-row input[type="checkbox"],
+  .modal-card input[type="checkbox"],
+  .settings-panel input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 38px;
+    height: 22px;
+    border-radius: 7px;
+    background: rgba(120, 130, 150, 0.20);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+    flex-shrink: 0;
+    outline: none;
+    margin: 0;
+    padding: 0;
+  }
+  .check-row input[type="checkbox"]::before,
+  .modal-card input[type="checkbox"]::before,
+  .settings-panel input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.95) inset,
+      0 1px 2px rgba(20, 30, 50, 0.18);
+    transition: left 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .check-row input[type="checkbox"]:checked,
+  .modal-card input[type="checkbox"]:checked,
+  .settings-panel input[type="checkbox"]:checked {
+    background: rgba(60, 130, 247, 0.85);
+    border-color: rgba(60, 130, 247, 0.55);
+  }
+  .check-row input[type="checkbox"]:checked::before,
+  .modal-card input[type="checkbox"]:checked::before,
+  .settings-panel input[type="checkbox"]:checked::before {
+    left: 18px;
   }
   .settings-card {
     width: min(780px, calc(100vw - 32px));
@@ -3254,8 +3350,13 @@
 
   <div id="agent-panel" class="agent-panel collapsed" aria-live="polite">
     <div class="agent-panel-head">
-      <span>Agent conversation</span>
+      <span id="agent-panel-title">Agent conversation</span>
       <button type="button" class="agent-panel-toggle" id="agent-panel-toggle" aria-label="Close conversation">×</button>
+    </div>
+    <div class="agent-selection-preview" id="agent-selection-preview" hidden>
+      <div class="agent-selection-count" id="agent-selection-count">0 tiles selected</div>
+      <ul class="agent-selection-list" id="agent-selection-list"></ul>
+      <div class="agent-selection-hint">Type above and the prompt will target this selection.</div>
     </div>
     <div class="agent-messages" id="agent-messages"></div>
   </div>
@@ -5635,16 +5736,24 @@
   // bigger door, and dormer windows up the shaft. Solo cluster-bypass
   // (variant 'tower'). Distinct silhouette from castle turret (which is
   // adjacency-driven and crenellated). floors scales height; min 2.
-  function makeStoneTower(floors = 2) {
+  function makeStoneTower(floors = 2, palette = null) {
     const g = new THREE.Group();
     const f = Math.max(2, floors);
     const wallH = H.WALL_H * f + 0.30;
     const radius = 0.46;
+    // Allow callers to override the tower's wall + roof palette. When the
+    // tower is merged with another building (e.g. an adjacent manor) the
+    // caller passes that building's palette so the tower picks up matching
+    // brick / roof colours.
+    const matStone  = (palette && palette.stone)  || M.towerStone;
+    const matStoneD = (palette && palette.stoneD) || M.towerStoneD;
+    const matRoof   = (palette && palette.roof)   || M.towerRoof;
+    const matRoofD  = (palette && palette.roofD)  || M.towerRoofD;
 
     // Stone shaft with subtle base flare
     const shaft = new THREE.Mesh(
       new THREE.CylinderGeometry(radius, radius * 1.06, wallH, 14),
-      M.towerStone
+      matStone
     );
     shaft.position.y = wallH / 2;
     g.add(shaft);
@@ -5654,7 +5763,7 @@
       const y = i * H.WALL_H + 0.15;
       const ring = new THREE.Mesh(
         new THREE.CylinderGeometry(radius + 0.02, radius + 0.02, 0.05, 14),
-        M.towerStoneD
+        matStoneD
       );
       ring.position.y = y;
       g.add(ring);
@@ -5664,7 +5773,7 @@
     const balconyY = wallH - 0.04;
     const balcony = new THREE.Mesh(
       new THREE.CylinderGeometry(radius + 0.10, radius + 0.10, 0.06, 14),
-      M.towerStoneD
+      matStoneD
     );
     balcony.position.y = balconyY;
     g.add(balcony);
@@ -5672,14 +5781,14 @@
     const railR = radius + 0.10;
     for (let i = 0; i < 12; i++) {
       const a = (i / 12) * Math.PI * 2;
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.10, 0.04), M.towerStone);
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.10, 0.04), matStone);
       post.position.set(Math.cos(a) * railR, balconyY + 0.08, Math.sin(a) * railR);
       post.rotation.y = -a;
       g.add(post);
     }
     const railTop = new THREE.Mesh(
       new THREE.CylinderGeometry(railR + 0.005, railR + 0.005, 0.025, 14, 1, true),
-      M.towerStoneD
+      matStoneD
     );
     railTop.position.y = balconyY + 0.14;
     g.add(railTop);
@@ -5687,14 +5796,14 @@
     // Conical roof (purple slate) — built from a cone
     const cone = new THREE.Mesh(
       new THREE.ConeGeometry(radius + 0.08, 0.50, 14),
-      M.towerRoof
+      matRoof
     );
     cone.position.y = wallH + 0.25;
     g.add(cone);
     // Cone trim ring at base
     const coneRing = new THREE.Mesh(
       new THREE.CylinderGeometry(radius + 0.10, radius + 0.10, 0.04, 14),
-      M.towerRoofD
+      matRoofD
     );
     coneRing.position.y = wallH + 0.02;
     g.add(coneRing);
@@ -5702,7 +5811,7 @@
     const finialBall = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), M.knob);
     finialBall.position.y = wallH + 0.55;
     g.add(finialBall);
-    const finialSpike = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.18, 6), M.towerStoneD);
+    const finialSpike = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.18, 6), matStoneD);
     finialSpike.position.y = wallH + 0.69;
     g.add(finialSpike);
 
@@ -5713,14 +5822,14 @@
     // Door arch top
     const archTop = new THREE.Mesh(
       new THREE.CylinderGeometry(0.14, 0.14, 0.05, 10, 1, false, 0, Math.PI),
-      M.towerStoneD
+      matStoneD
     );
     archTop.rotation.z = Math.PI / 2;
     archTop.rotation.y = Math.PI / 2;
     archTop.position.set(0, 0.46, radius + 0.02);
     g.add(archTop);
     // Door frame slabs
-    const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.46, 0.05), M.towerStoneD);
+    const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.46, 0.05), matStoneD);
     frameL.position.set(-0.16, 0.23, radius + 0.005); g.add(frameL);
     const frameR = frameL.clone(); frameR.position.x = 0.16; g.add(frameR);
 
@@ -5742,7 +5851,7 @@
     g.add(sideWin);
 
     // Flag on top
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.30, 0.025), M.towerStoneD);
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.30, 0.025), matStoneD);
     pole.position.y = wallH + 0.85;
     g.add(pole);
     const flag = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 0.02), M.flagRed);
@@ -6372,6 +6481,198 @@
   function tilePos(x, z) {
     return new THREE.Vector3(x - GRID / 2 + 0.5, 0, z - GRID / 2 + 0.5);
   }
+
+  // -------- selection (select-tool) --------
+  // Track a Set of "x,z" string keys for selected cells. A semi-transparent
+  // overlay quad is rendered on top of each selected tile. Listeners are
+  // notified via a CustomEvent so UI (the agent panel) can refresh.
+  const selectedCells = new Set();
+  const selectionGroup = new THREE.Group();
+  selectionGroup.name = 'selection-highlights';
+  scene.add(selectionGroup);
+  const selectionMat = new THREE.MeshBasicMaterial({
+    color: 0x3c82f7,
+    transparent: true,
+    opacity: 0.32,
+    depthWrite: false,
+    depthTest: true,
+  });
+  const selectionEdgeMat = new THREE.MeshBasicMaterial({
+    color: 0x1f5fd8,
+    transparent: true,
+    opacity: 0.95,
+    depthWrite: false,
+    depthTest: true,
+  });
+  // Depth-tested so trees and tall objects in front of the selection
+  // plane occlude the marquee naturally.
+  function clearSelectionMeshes() {
+    while (selectionGroup.children.length) {
+      const m = selectionGroup.children.pop();
+      if (m.geometry) m.geometry.dispose();
+    }
+  }
+  function addEdgeStrip(p, y, length, thickness, axis) {
+    // axis 'x' = aligned along x; 'z' = along z.
+    const g = axis === 'x'
+      ? new THREE.BoxGeometry(length, 0.02, thickness)
+      : new THREE.BoxGeometry(thickness, 0.02, length);
+    const m = new THREE.Mesh(g, selectionEdgeMat);
+    m.position.set(p.x, y, p.z);
+    m.renderOrder = 999;
+    selectionGroup.add(m);
+  }
+  // Inverted-hull outline material: render only back faces in a flat
+  // colour so a slightly-scaled clone of the mesh appears as a thick
+  // outline around the original. Beats LineSegments because GPU line
+  // width is typically capped at 1px.
+  const selectionOutlineMat = new THREE.MeshBasicMaterial({
+    color: 0x1f5fd8,
+    side: THREE.BackSide,
+    transparent: false,
+    depthWrite: true,
+    depthTest: true,
+  });
+  const OUTLINE_SCALE = 1.08;
+  function addObjectOutline(rootObject) {
+    if (!rootObject) return;
+    rootObject.updateMatrixWorld(true);
+    rootObject.traverse(node => {
+      if (!node.isMesh || !node.geometry) return;
+      try {
+        // Reuse the mesh's geometry (shared, cheap). The hull is a fresh
+        // Mesh with the outline material and a scaled-up world transform.
+        const hull = new THREE.Mesh(node.geometry, selectionOutlineMat);
+        // Apply the source mesh's full world transform, then bump scale.
+        hull.matrix.copy(node.matrixWorld);
+        hull.matrixAutoUpdate = false;
+        // Scale around local origin by post-multiplying a scale matrix.
+        // Geometry on these objects is already centered on their local
+        // origin, so this produces a uniform fattening.
+        const s = new THREE.Matrix4().makeScale(OUTLINE_SCALE, OUTLINE_SCALE, OUTLINE_SCALE);
+        hull.matrix.multiply(s);
+        hull.renderOrder = 999;
+        selectionGroup.add(hull);
+      } catch (_) {}
+    });
+  }
+  function parseCellKey(key) {
+    const parts = key.split(',').map(Number);
+    // Backwards-compatible: 2-part keys (x,z) refer to the home board.
+    if (parts.length === 2) return { bx: 0, bz: 0, x: parts[0], z: parts[1] };
+    return { bx: parts[0], bz: parts[1], x: parts[2], z: parts[3] };
+  }
+  function cellForKey(key) {
+    const { bx, bz, x, z } = parseCellKey(key);
+    if (bx === 0 && bz === 0) {
+      return (world[x] && world[x][z]) ? world[x][z] : null;
+    }
+    try {
+      const ghost = makeGhostWorld(bx, bz);
+      return (ghost && ghost[x] && ghost[x][z]) ? ghost[x][z] : null;
+    } catch (_) { return null; }
+  }
+  function rebuildSelectionMeshes() {
+    clearSelectionMeshes();
+    selectedCells.forEach(key => {
+      const { bx, bz, x, z } = parseCellKey(key);
+      if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+      const cell = cellForKey(key);
+      const rise = cell ? terrainRiseForLevel(terrainLevelForCell(cell)) : 0;
+      // Sit just above the tile top so the outline reads as on the surface.
+      const y = rise + TOP_H + 0.05;
+      const p = (bx || bz) ? ghostCellPos(bx, bz, x, z) : tilePos(x, z);
+      // Translucent fill
+      const fill = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.02, 0.96), selectionMat);
+      fill.position.set(p.x, y, p.z);
+      fill.renderOrder = 998;
+      selectionGroup.add(fill);
+      // Thick, opaque-feeling tile border made of four edge strips.
+      const T = 0.07;          // thickness
+      const L = 1.02;          // strip length (slightly past tile edge)
+      const yEdge = y + 0.005;
+      addEdgeStrip({ x: p.x, z: p.z - 0.5 }, yEdge, L, T, 'x');
+      addEdgeStrip({ x: p.x, z: p.z + 0.5 }, yEdge, L, T, 'x');
+      addEdgeStrip({ x: p.x - 0.5, z: p.z }, yEdge, L, T, 'z');
+      addEdgeStrip({ x: p.x + 0.5, z: p.z }, yEdge, L, T, 'z');
+      // Outline the object on this cell (house / tree / rock / fence /
+      // bridge / crop). Only home-board cells have entries in cellMeshes;
+      // ghost-board outlines are skipped (those meshes live in a
+      // per-board group).
+      if (bx === 0 && bz === 0 && cell && cell.kind) {
+        const entry = cellMeshes[x + ',' + z];
+        if (entry && entry.object) addObjectOutline(entry.object);
+      }
+    });
+  }
+  function notifySelectionChanged() {
+    rebuildSelectionMeshes();
+    window.dispatchEvent(new CustomEvent('tinyworld:selection-changed', {
+      detail: { cells: Array.from(selectedCells) }
+    }));
+  }
+  function clearSelection() {
+    if (!selectedCells.size) return;
+    selectedCells.clear();
+    notifySelectionChanged();
+  }
+  function makeKey(bx, bz, x, z) {
+    return (bx || 0) + ',' + (bz || 0) + ',' + x + ',' + z;
+  }
+  function setRectangleSelection(aHit, bHit, mode) {
+    // aHit, bHit: pickTile results {x, z, boardX, boardZ}. Rectangle is
+    // built on whichever board the anchor (aHit) belongs to; if the
+    // current cell is on a different board we just include that single
+    // cell so the user can extend selections off-board with successive
+    // shift-clicks.
+    if (mode !== 'add') selectedCells.clear();
+    const ax = aHit.x, az = aHit.z;
+    const abx = aHit.boardX || 0, abz = aHit.boardZ || 0;
+    const bx = bHit.x, bz = bHit.z;
+    const bbx = bHit.boardX || 0, bbz = bHit.boardZ || 0;
+    if (abx !== bbx || abz !== bbz) {
+      selectedCells.add(makeKey(abx, abz, ax, az));
+      selectedCells.add(makeKey(bbx, bbz, bx, bz));
+    } else {
+      const x0 = Math.min(ax, bx), x1 = Math.max(ax, bx);
+      const z0 = Math.min(az, bz), z1 = Math.max(az, bz);
+      for (let x = x0; x <= x1; x++) {
+        for (let z = z0; z <= z1; z++) {
+          // No GRID clamp — selection works anywhere a tile actually
+          // exists (home board OR ghost boards).
+          selectedCells.add(makeKey(abx, abz, x, z));
+        }
+      }
+    }
+    notifySelectionChanged();
+  }
+  function toggleCellSelection(hit) {
+    const key = makeKey(hit.boardX, hit.boardZ, hit.x, hit.z);
+    if (selectedCells.has(key)) selectedCells.delete(key);
+    else selectedCells.add(key);
+    notifySelectionChanged();
+  }
+  // Expose for cross-module access (form submit pulls this in to scope prompts).
+  window.__tinyworldSelection = {
+    get cells() { return new Set(selectedCells); },
+    clear: clearSelection,
+    summary() {
+      if (!selectedCells.size) return null;
+      const counts = {};
+      const totalTerrain = {};
+      selectedCells.forEach(key => {
+        const cell = cellForKey(key) || defaultCell();
+        const k = cell.kind || cell.terrain;
+        counts[k] = (counts[k] || 0) + 1;
+        totalTerrain[cell.terrain] = (totalTerrain[cell.terrain] || 0) + 1;
+      });
+      return {
+        cellCount: selectedCells.size,
+        kinds: counts,
+        terrains: totalTerrain,
+      };
+    },
+  };
 
   function defaultCell() {
     return { terrain: 'grass', terrainFloors: 1, kind: null, floors: 1, buildingType: null, fenceSide: null, extras: [] };
@@ -7521,6 +7822,47 @@
 
   // Walk ± along x and z from (x,z) over contiguous houses. Tries linear first,
   // then composite (L/T-shapes), then falls back to solo. Returns:
+  // Returns a {stone, stoneD, roof, roofD} palette derived from a neighbour
+  // house's buildingType, or null when the building should keep its native
+  // palette. Used to make adjacent forced-variant houses (manor / skyscraper
+  // / castle turret) blend into a single visual structure.
+  function getMergedBuildingPalette(x, z, selfType) {
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for (let i = 0; i < dirs.length; i++) {
+      const nx = x + dirs[i][0], nz = z + dirs[i][1];
+      if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) continue;
+      const n = world[nx] && world[nx][nz];
+      if (!n || n.kind !== 'house') continue;
+      const bt = n.buildingType;
+      if (!bt || bt === selfType) continue;
+      if (bt === 'manor') {
+        return {
+          stone:  M.manorBrick,
+          stoneD: M.manorBrickD,
+          roof:   M.manorRoof,
+          roofD:  M.manorRoofD,
+        };
+      }
+      if (bt === 'turret') {
+        return {
+          stone:  M.castleStone,
+          stoneD: M.castleStoneD,
+          roof:   M.castleRoof || M.towerRoof,
+          roofD:  M.castleRoofD || M.towerRoofD,
+        };
+      }
+      if (bt === 'skyscraper') {
+        return {
+          stone:  M.skyGlass || M.towerStone,
+          stoneD: M.skyGlassD || M.towerStoneD,
+          roof:   M.towerRoof,
+          roofD:  M.towerRoofD,
+        };
+      }
+    }
+    return null;
+  }
+
   //   { kind: 'linear',    isAnchor, length, orientation, anchorX, anchorZ }
   //   { kind: 'composite', isAnchor, topology }
   //   { kind: 'solo',      isAnchor: true,   anchorX, anchorZ }
@@ -7721,7 +8063,10 @@
       } else if (bType === 'manor') {
         mesh = makeManor(floors);
       } else if (bType === 'tower') {
-        mesh = makeStoneTower(Math.max(floors, 2));
+        // When a tower is adjacent to another house variant, adopt that
+        // variant's palette so they read as one merged structure (e.g. a
+        // tower next to a manor switches from grey stone to brick).
+        mesh = makeStoneTower(Math.max(floors, 2), getMergedBuildingPalette(x, z, 'tower'));
       } else if (bType === 'turret') {
         mesh = makeTurret(floors);
       } else {
@@ -9154,7 +9499,8 @@
   let pointerDown = null;     // {x, y}
   let lastPointer = null;
   let didDrag = false;
-  let dragMode = null;        // 'orbit' | 'pan' | 'pinch'
+  let dragMode = null;        // 'orbit' | 'pan' | 'pinch' | 'select-area'
+  let selectionDragAnchor = null;
   let spaceDown = false;
   const DRAG_THRESHOLD = 5;
   const activePointers = new Map(); // pointerId -> {x, y, type}
@@ -9218,6 +9564,18 @@
     }
 
     dragMode = (e.button === 2 || spaceDown) ? 'pan' : 'orbit';
+    // Select tool:
+    //   - Shift+drag  → marquee (rectangular area selection)
+    //   - Plain click → single cell + its object (handled on pointerup)
+    //   - Plain drag  → still orbits the camera, no selection change
+    if (dragMode === 'orbit' && selectedTool && selectedTool.select && (e.shiftKey || e.metaKey)) {
+      const hit = pickTile(e.clientX, e.clientY);
+      if (hit) {
+        dragMode = 'select-area';
+        selectionDragAnchor = { hit };
+        setRectangleSelection(hit, hit, 'replace');
+      }
+    }
     pointerDown = { x: e.clientX, y: e.clientY };
     lastPointer = { x: e.clientX, y: e.clientY };
     didDrag = false;
@@ -9268,6 +9626,12 @@
         const ddy = e.clientY - lastPointer.y;
         if (dragMode === 'pan') {
           panCameraByPixels(ddx, ddy);
+        } else if (dragMode === 'select-area') {
+          // Extend the marquee rectangle to the cell under the cursor.
+          const hit = pickTile(e.clientX, e.clientY);
+          if (hit && selectionDragAnchor) {
+            setRectangleSelection(selectionDragAnchor.hit, hit, 'replace');
+          }
         } else {
           azimuth -= ddx * 0.008;
           polar = Math.max(0.18, Math.min(1.25, polar - ddy * 0.006));
@@ -9312,13 +9676,21 @@
       return;
     }
 
-    if (pointerDown && !didDrag && currentHover && dragMode !== 'pan') {
-      applyToolToCell(currentHover);
+    if (pointerDown && !didDrag && currentHover && dragMode !== 'pan' && dragMode !== 'select-area') {
+      // Plain click on the select tool is a no-op; the user must hold
+      // shift to engage selection (shift+click for one cell, shift+drag
+      // for a marquee). Other tools apply as usual.
+      if (!(selectedTool && selectedTool.select)) {
+        applyToolToCell(currentHover);
+      }
     }
+    // (Shift+click + shift+drag are handled by setRectangleSelection
+    // in pointerdown/pointermove respectively.)
     if (activePointers.size === 0) {
       pointerDown = null;
       lastPointer = null;
       dragMode = null;
+      selectionDragAnchor = null;
       // Touch devices: clear the hover marker after a tap so it doesn't linger.
       if (e.pointerType !== 'mouse') {
         hoverMesh.visible = false;
@@ -13252,6 +13624,45 @@
       }
     });
 
+    // -- selection preview wiring --
+    // When the canvas tells us the selection changed, refresh the preview
+    // block inside the panel and slide the panel in if there's anything
+    // selected. Clearing selection collapses the preview back.
+    const previewBox = document.getElementById('agent-selection-preview');
+    const previewCount = document.getElementById('agent-selection-count');
+    const previewList = document.getElementById('agent-selection-list');
+    const panelTitle = document.getElementById('agent-panel-title');
+    function renderSelection() {
+      const sel = window.__tinyworldSelection;
+      const summary = sel && sel.summary();
+      if (!summary) {
+        panel.classList.remove('has-selection');
+        previewBox.hidden = true;
+        if (panelTitle) panelTitle.textContent = 'Agent conversation';
+        return;
+      }
+      panel.classList.add('has-selection');
+      previewBox.hidden = false;
+      previewCount.textContent = summary.cellCount + (summary.cellCount === 1 ? ' tile selected' : ' tiles selected');
+      previewList.innerHTML = '';
+      const entries = Object.entries(summary.kinds).sort((a, b) => b[1] - a[1]);
+      for (const [k, n] of entries) {
+        const li = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = k;
+        const count = document.createElement('span');
+        count.className = 'count';
+        count.textContent = '×' + n;
+        li.appendChild(name);
+        li.appendChild(count);
+        previewList.appendChild(li);
+      }
+      if (panelTitle) panelTitle.textContent = 'Selection';
+      // Slide the panel in (expanded) and pin so the user can chat about it.
+      setPanelCollapsed(false, { pin: true });
+    }
+    window.addEventListener('tinyworld:selection-changed', renderSelection);
+
     // -- suggestion chips below the input --
     const SUGGESTIONS = [
       'make it snowy',
@@ -13342,10 +13753,24 @@
 
     form.addEventListener('submit', async e => {
       e.preventDefault();
-      const prompt = input.value.trim();
-      if (!prompt || send.disabled) return;
+      const userText = input.value.trim();
+      if (!userText || send.disabled) return;
+      // If there's an active selection, prepend its context so the agent
+      // scopes its work to those cells.
+      const sel = window.__tinyworldSelection;
+      const summary = sel && sel.summary();
+      let prompt = userText;
+      if (summary) {
+        const cellList = Array.from(sel.cells).slice(0, 64).join(', ');
+        const kindParts = Object.entries(summary.kinds)
+          .map(([k, n]) => n + ' ' + k + (n > 1 ? 's' : ''))
+          .join(', ');
+        prompt =
+          '[Selected ' + summary.cellCount + ' tile(s): ' + kindParts +
+          ' at cells (x,z) ' + cellList + ']\n' + userText;
+      }
       // User message lives only in the conversation history; no toast.
-      addAgentMessage('user', prompt);
+      addAgentMessage('user', userText);
       input.value = '';
       // Progress flows through the placeholder while work runs.
       const thinking = addAgentMessage('assistant', 'Working on it…');
@@ -13366,7 +13791,19 @@
         window.__tinyworldAgent && window.__tinyworldAgent.done && window.__tinyworldAgent.done(msg, 'error');
       } finally {
         send.disabled = false;
+        // Once the prompt has been consumed (whether success or error)
+        // drop the active selection — its scope was a one-shot for this
+        // submission, not a persistent filter.
+        if (window.__tinyworldSelection) window.__tinyworldSelection.clear();
       }
+    });
+
+    // Escape clears any active selection (mirrors deselect behaviour from
+    // other tools).
+    window.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+      if (window.__tinyworldSelection) window.__tinyworldSelection.clear();
     });
   })();
 
