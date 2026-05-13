@@ -5267,6 +5267,127 @@
     return g;
   }
 
+  // Item 6 — new kinds. Plant variants ride on existing tuft/leaves
+  // materials but pick different palettes; animals are tiny box-stack
+  // primitives so they render through the standard kind dispatch.
+  const M_PLANT = {
+    petalRed:    new THREE.MeshLambertMaterial({ color: 0xd24a4f }),
+    petalYellow: new THREE.MeshLambertMaterial({ color: 0xf2c849 }),
+    petalPurple: new THREE.MeshLambertMaterial({ color: 0x9d6ad1 }),
+    petalWhite:  new THREE.MeshLambertMaterial({ color: 0xf3eee0 }),
+    bushBerry:   new THREE.MeshLambertMaterial({ color: 0xc94a4f }),
+  };
+  const M_ANIMAL = {
+    cowWhite:  new THREE.MeshLambertMaterial({ color: 0xf2eee0 }),
+    cowSpot:   new THREE.MeshLambertMaterial({ color: 0x2a2722 }),
+    cowMuzzle: new THREE.MeshLambertMaterial({ color: 0xeec7b0 }),
+    sheepWool: new THREE.MeshLambertMaterial({ color: 0xe8e2d2 }),
+    sheepFace: new THREE.MeshLambertMaterial({ color: 0x2a2722 }),
+    hoof:      new THREE.MeshLambertMaterial({ color: 0x2a2722 }),
+  };
+
+  function makeFlower() {
+    const g = new THREE.Group();
+    // Small grass cluster at base.
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.18), M.leaves);
+    base.position.y = 0.025;
+    g.add(base);
+    const palettes = [M_PLANT.petalRed, M_PLANT.petalYellow, M_PLANT.petalPurple, M_PLANT.petalWhite];
+    const positions = [[-0.05, -0.04], [0.05, 0.04], [0.0, 0.0]];
+    positions.forEach(([x, z], i) => {
+      const stem = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.14, 0.03), M.leavesDk);
+      stem.position.set(x, 0.10, z);
+      g.add(stem);
+      const petals = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.05, 0.10), palettes[i % palettes.length]);
+      petals.position.set(x, 0.20, z);
+      g.add(petals);
+      const heart = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.04), M_PLANT.petalYellow);
+      heart.position.set(x, 0.23, z);
+      g.add(heart);
+    });
+    g.userData = { kind: 'flower' };
+    castReceive(g);
+    return g;
+  }
+  function makeBush() {
+    const g = new THREE.Group();
+    const positions = [
+      [0,    0,   0.30, 0.24],
+      [0.18, 0.06,0.22, 0.18],
+      [-0.16,0.04,0.20, 0.16],
+      [0.05,-0.16,0.18, 0.16],
+    ];
+    positions.forEach(([x, z, w, h], i) => {
+      const lobe = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), i % 2 ? M.leavesDk : M.leaves);
+      lobe.position.set(x, h / 2, z);
+      g.add(lobe);
+    });
+    // Optional berries on top.
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), M_PLANT.bushBerry);
+    b1.position.set(0.05, 0.26, 0.04);
+    g.add(b1);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.045), M_PLANT.bushBerry);
+    b2.position.set(-0.06, 0.22, -0.05);
+    g.add(b2);
+    g.userData = { kind: 'bush' };
+    castReceive(g);
+    return g;
+  }
+  function makeCow() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.26, 0.24), M_ANIMAL.cowWhite);
+    body.position.set(0, 0.22, 0);
+    g.add(body);
+    // Spots
+    const spot1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.12), M_ANIMAL.cowSpot);
+    spot1.position.set(0.06, 0.36, 0.06);
+    g.add(spot1);
+    const spot2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.10), M_ANIMAL.cowSpot);
+    spot2.position.set(-0.08, 0.36, -0.08);
+    g.add(spot2);
+    // Head
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 0.16), M_ANIMAL.cowWhite);
+    head.position.set(0.27, 0.30, 0);
+    g.add(head);
+    const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.10), M_ANIMAL.cowMuzzle);
+    muzzle.position.set(0.36, 0.26, 0);
+    g.add(muzzle);
+    // Legs (4 short)
+    [[0.13, -0.08], [0.13, 0.08], [-0.13, -0.08], [-0.13, 0.08]].forEach(([x, z]) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.07), M_ANIMAL.hoof);
+      leg.position.set(x, 0.08, z);
+      g.add(leg);
+    });
+    g.userData = { kind: 'cow' };
+    castReceive(g);
+    return g;
+  }
+  function makeSheep() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.24, 0.22), M_ANIMAL.sheepWool);
+    body.position.set(0, 0.22, 0);
+    g.add(body);
+    // Wool puffs along the back
+    [[-0.10, 0.05], [0.00, 0.00], [0.10, 0.05]].forEach(([x, z]) => {
+      const puff = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.10), M_ANIMAL.sheepWool);
+      puff.position.set(x, 0.36, z);
+      g.add(puff);
+    });
+    // Face
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.12), M_ANIMAL.sheepFace);
+    head.position.set(0.22, 0.28, 0);
+    g.add(head);
+    // Legs
+    [[0.10, -0.08], [0.10, 0.08], [-0.10, -0.08], [-0.10, 0.08]].forEach(([x, z]) => {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.06), M_ANIMAL.hoof);
+      leg.position.set(x, 0.07, z);
+      g.add(leg);
+    });
+    g.userData = { kind: 'sheep' };
+    castReceive(g);
+    return g;
+  }
+
   // -------- world data --------
   // world[x][z] stores intent: terrain + the kind of object on it (string or null).
   // cellMeshes[key] stores the rendered meshes (tile + object). The object mesh
@@ -5839,6 +5960,10 @@
     else if (cell.kind === 'rock')      mesh = makeRock(getGhostRockNeighbors(cells, x, z), level, x + 1000, z + 1000);
     else if (cell.kind === 'bridge')    mesh = makeBridge(ghostBridgeOrientation(cells, x, z), cell.floors || 1);
     else if (cell.kind === 'tuft')      mesh = makeTuft();
+    else if (cell.kind === 'flower')    mesh = makeFlower();
+    else if (cell.kind === 'bush')      mesh = makeBush();
+    else if (cell.kind === 'cow')       mesh = makeCow();
+    else if (cell.kind === 'sheep')     mesh = makeSheep();
     else if (cell.kind === 'crop')      mesh = makeCrop();
     else if (cell.kind === 'corn')      mesh = makeCorn();
     else if (cell.kind === 'wheat')     mesh = makeWheat();
@@ -6602,6 +6727,10 @@
     else if (kind === 'rock')      mesh = makeRock(getRockNeighbors(x, z), level, x, z, cell.terrain === 'water');
     else if (kind === 'bridge')    mesh = makeBridge(getBridgeOrientation(x, z), level);
     else if (kind === 'tuft')      mesh = makeTuft();
+    else if (kind === 'flower')    mesh = makeFlower();
+    else if (kind === 'bush')      mesh = makeBush();
+    else if (kind === 'cow')       mesh = makeCow();
+    else if (kind === 'sheep')     mesh = makeSheep();
     else if (kind === 'crop')      mesh = makeCrop();
     else if (kind === 'corn')      mesh = makeCorn();
     else if (kind === 'wheat')     mesh = makeWheat();
@@ -6681,7 +6810,7 @@
     // Uneven natural objects get a random 90° rotation per cell so the
     // same kind doesn't look identical in every tile. Deterministic on
     // (x, z) via cellRand so re-renders keep the same orientation.
-    if (kind === 'rock' || kind === 'tree' || kind === 'tuft') {
+    if (kind === 'rock' || kind === 'tree' || kind === 'tuft' || kind === 'flower' || kind === 'bush' || kind === 'cow' || kind === 'sheep') {
       const r = Math.floor(cellRand(x, z, 71) * 4); // 0..3
       mesh.rotation.y += r * (Math.PI / 2);
     }
@@ -7152,6 +7281,10 @@
     if      (kind === 'tree')      mesh = makeTree();
     else if (kind === 'rock')      mesh = makeRock({ n: false, s: false, e: false, w: false }, 1, 0, 0);
     else if (kind === 'tuft')      mesh = makeTuft();
+    else if (kind === 'flower')    mesh = makeFlower();
+    else if (kind === 'bush')      mesh = makeBush();
+    else if (kind === 'cow')       mesh = makeCow();
+    else if (kind === 'sheep')     mesh = makeSheep();
     else if (kind === 'crop')      mesh = makeCrop();
     else if (kind === 'corn')      mesh = makeCorn();
     else if (kind === 'wheat')     mesh = makeWheat();
@@ -7330,13 +7463,18 @@
     { id: 'carrot',    label: 'Carrot',    kind: 'carrot',    terrainOverride: 'dirt', color: '#e06a2a', shortcut: 'a', group: 'crops' },
     { id: 'sunflower', label: 'Sunflower', kind: 'sunflower', terrainOverride: 'dirt', color: '#f7b730', shortcut: 's', group: 'crops' },
     { id: 'tuft',   label: 'Tuft',   kind: 'tuft',  color: '#86b53e', shortcut: 't', group: 'nature' },
+    { id: 'flower', label: 'Flower', kind: 'flower', color: '#d24a4f', group: 'nature' },
+    { id: 'bush',   label: 'Bush',   kind: 'bush',  color: '#6fa030', group: 'nature' },
+    { id: 'cow',    label: 'Cow',    kind: 'cow',   color: '#f2eee0', group: 'animals' },
+    { id: 'sheep',  label: 'Sheep',  kind: 'sheep', color: '#e8e2d2', group: 'animals' },
     { id: 'erase',  label: 'Erase',  erase: true, color: 'transparent', eraser: true, shortcut: 'e', group: 'tools' },
   ];
 
   const TOOL_GROUPS = [
     { id: 'terrain', label: 'Terrain', toolIds: ['grass', 'path', 'dirt', 'water', 'rock', 'tuft'], iconTool: 'grass' },
     { id: 'build', label: 'Build', toolIds: ['house', 'fence', 'bridge'], iconTool: 'house' },
-    { id: 'grow', label: 'Grow', toolIds: ['tree', 'crop', 'corn', 'wheat', 'pumpkin', 'carrot', 'sunflower'], iconTool: 'tree' },
+    { id: 'grow', label: 'Grow', toolIds: ['tree', 'flower', 'bush', 'crop', 'corn', 'wheat', 'pumpkin', 'carrot', 'sunflower'], iconTool: 'tree' },
+    { id: 'animals', label: 'Animals', toolIds: ['cow', 'sheep'], iconTool: 'cow' },
   ];
 
   function groupForTool(tool) {
@@ -10090,7 +10228,11 @@
             "pumpkin",
             "carrot",
             "sunflower",
-            "tuft"
+            "tuft",
+            "flower",
+            "bush",
+            "cow",
+            "sheep"
           ],
           "description": "Object placed on the cell, or null for none. House uses 'floors' and optional 'buildingType'. Fence uses 'fenceSide' to render a single side/leaf on one tile edge or centre line. Fences on perpendicular sides of a house can promote it to a castle turret and the connected fence component to a stone wall. Rock is a low-poly landmark prop. Bridge is the only kind that may sit on water and auto-orients toward nearby path/land. Crop-type kinds (crop/corn/wheat/pumpkin/carrot/sunflower) imply terrain='dirt'."
         },
@@ -10186,7 +10328,7 @@
       },
       kind: {
         type: ['string', 'null'],
-        enum: [null, 'house', 'tree', 'fence', 'rock', 'hill', 'bridge', 'crop', 'corn', 'wheat', 'pumpkin', 'carrot', 'sunflower', 'tuft'],
+        enum: [null, 'house', 'tree', 'fence', 'rock', 'hill', 'bridge', 'crop', 'corn', 'wheat', 'pumpkin', 'carrot', 'sunflower', 'tuft', 'flower', 'bush', 'cow', 'sheep'],
       },
       floors: {
         type: 'integer',
@@ -10368,7 +10510,7 @@
     if (data.v !== 1 && data.v !== 2 && data.v !== 3 && data.v !== 4) return 'unsupported v: ' + data.v;
     if (!Array.isArray(data.cells)) return 'cells must be an array';
     const okTerrain = new Set(['grass','path','dirt','water']);
-    const okKind = new Set([null,'house','tree','fence','rock','hill','bridge','crop','corn','wheat','pumpkin','carrot','sunflower','tuft']);
+    const okKind = new Set([null,'house','tree','fence','rock','hill','bridge','crop','corn','wheat','pumpkin','carrot','sunflower','tuft','flower','bush','cow','sheep']);
     const okBT = new Set([null,'cottage','manor','tower','turret','skyscraper']);
     const okFenceSide = new Set([null,'n','s','e','w','center-x','center-z']);
     const seen = new Set();
@@ -10539,7 +10681,7 @@
       throw new Error('schema check: response was not an object');
     }
     const okTerrain = new Set(['grass','path','dirt','water']);
-    const okKind = new Set([null,'house','tree','fence','rock','hill','bridge','crop','corn','wheat','pumpkin','carrot','sunflower','tuft']);
+    const okKind = new Set([null,'house','tree','fence','rock','hill','bridge','crop','corn','wheat','pumpkin','carrot','sunflower','tuft','flower','bush','cow','sheep']);
     const okBT = new Set([null,'cottage','manor','tower','turret','skyscraper']);
     let kind = data.kind === undefined ? null : data.kind;
     let terrain = data.terrain;
