@@ -546,6 +546,10 @@
     line-height: 1;
   }
 
+  /* Submenu flyout — pops above the toolbar with an OWB-style spring
+     animation.  Tinyworld's existing icons (3D tool thumbnails) stay
+     unchanged; only the show/hide transition is new.  Open state is
+     driven by the `.open` class; `hidden` still hides for a11y. */
   .flyout {
     position: fixed;
     background: var(--panel);
@@ -555,10 +559,55 @@
     gap: 4px;
     box-shadow: var(--shadow);
     z-index: 11;
-    transform: translateX(-50%);
+    /* Anchor below the flyout center so spring scales from the toolbar. */
+    transform-origin: bottom center;
+    transform: translate(-50%, 14px) scale(0.94);
+    opacity: 0;
+    pointer-events: none;
     max-width: calc(100vw - 32px);
     overflow-x: auto;
+    transition:
+      transform 0.26s cubic-bezier(0.34, 1.36, 0.64, 1),
+      opacity 0.16s ease-out;
   }
+  .flyout.open {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Stagger each tool/variant entry as the flyout opens so they cascade
+     in like OWB's drawer items. */
+  .flyout > * {
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.18s ease-out, transform 0.18s ease-out;
+  }
+  .flyout.open > * {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .flyout.open > *:nth-child(1) { transition-delay: 0.02s; }
+  .flyout.open > *:nth-child(2) { transition-delay: 0.05s; }
+  .flyout.open > *:nth-child(3) { transition-delay: 0.08s; }
+  .flyout.open > *:nth-child(4) { transition-delay: 0.11s; }
+  .flyout.open > *:nth-child(5) { transition-delay: 0.13s; }
+  .flyout.open > *:nth-child(6) { transition-delay: 0.15s; }
+  .flyout.open > *:nth-child(7) { transition-delay: 0.17s; }
+  .flyout.open > *:nth-child(n+8) { transition-delay: 0.19s; }
+  /* The tool-group bottom dock also gets a subtle press feel matching
+     OWB's dock-btn.  Existing icons keep their thumbnails; only the
+     active-state indicator gets the OWB accent underline. */
+  .tool-group-btn:active { transform: scale(0.96); }
+  .tool-group-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 50%;
+    transform: translateX(-50%);
+    width: 16px; height: 2px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .tool-group-btn { position: relative; }
   .flyout.tool-menu {
     padding: 8px;
     gap: 6px;
@@ -2612,24 +2661,28 @@
     objectOpacity: 'tinyworld:render:objectOpacity',
     version: 'tinyworld:render:version',
   };
-  const RENDER_SETTINGS_VERSION = '11';
+  const RENDER_SETTINGS_VERSION = '12';
   const RENDER_DEFAULTS = {
-    post: '0',
-    resolution: '1',
+    // Defaults tuned for smoothness on mid-tier laptops.  Each of these
+    // is still user-editable via Settings → Screen — only the starting
+    // values shifted.  Bumped via RENDER_SETTINGS_VERSION so existing
+    // installs pick the new baseline up.
+    post: '0',          // post-processing off (off-budget on weak GPUs)
+    resolution: '0.85', // ~15% fewer fill pixels at default DPR
     saturation: '1',
     contrast: '1',
     brightness: '1',
     gamma: '1',
     vignette: '0.04',
     warmth: '0',
-    shadow: 'balanced',
+    shadow: 'low',      // small shadow map — single biggest GPU saver
     lighting: '1.34',
-    visibleDistance: '3',
+    visibleDistance: '2', // 5x5 ghost-board ring instead of 7x7
     visibleSize: '8',
-    clouds: '0.61',
+    clouds: '0.4',      // fewer cloud puffs animated each frame
     cloudSpeed: '0.35',
     cloudHeight: '6',
-    cloudShadow: '0.5',
+    cloudShadow: '0',   // cloud shadows off by default (cheap to re-enable)
     smoothing: '0.7',
     tiltBlur: '3.5',
     tiltFocus: '18',
@@ -2736,13 +2789,6 @@
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xf4ede0);
-  // Horizon fog so the cliff edge of the home + ghost boards fades into
-  // the sky colour instead of hitting an abrupt horizon line.  Linear
-  // fog tied to the same colour as scene.background — updated together
-  // by the time-of-day code.  Near is well past the home-grid radius so
-  // the diorama itself reads crisp; far covers the visible-distance
-  // bubble at default settings.
-  scene.fog = new THREE.Fog(0xf4ede0, 22, 52);
   const cloudLayer = document.getElementById('cloud-layer');
 
   // -------- post processing --------
@@ -7944,12 +7990,31 @@
     });
   }
 
+  // Cancel any pending hide so re-opening doesn't immediately stash the
+  // flyout back behind a `hidden` attribute.
+  let _flyoutHideTimer = 0;
+  function _showFlyoutAnimated(flyoutEl) {
+    if (_flyoutHideTimer) { clearTimeout(_flyoutHideTimer); _flyoutHideTimer = 0; }
+    flyoutEl.hidden = false;
+    // Force reflow so the next class change actually transitions.
+    void flyoutEl.offsetHeight;
+    flyoutEl.classList.add('open');
+  }
+  function _hideFlyoutAnimated(flyoutEl) {
+    flyoutEl.classList.remove('open');
+    if (_flyoutHideTimer) clearTimeout(_flyoutHideTimer);
+    _flyoutHideTimer = setTimeout(() => {
+      flyoutEl.hidden = true;
+      _flyoutHideTimer = 0;
+    }, 260);
+  }
+
   function showToolGroup(group, anchor) {
     const flyoutEl = document.getElementById('flyout');
     renderToolGroupFlyout(flyoutEl, group);
     flyoutEl.classList.add('tool-menu');
-    flyoutEl.hidden = false;
     positionFlyout(anchor, flyoutEl);
+    _showFlyoutAnimated(flyoutEl);
   }
 
   function selectTool(t) {
@@ -7962,11 +8027,11 @@
       if (!t.activeVariant) t.activeVariant = t.variants[0];
       renderFlyout(flyoutEl, t);
       flyoutEl.classList.remove('tool-menu');
-      flyoutEl.hidden = false;
       const btn = document.querySelector('.tool[data-id="' + t.id + '"]');
       if (btn) positionFlyout(btn, flyoutEl);
+      _showFlyoutAnimated(flyoutEl);
     } else {
-      flyoutEl.hidden = true;
+      _hideFlyoutAnimated(flyoutEl);
     }
     // Rebuild the ghost preview for the new tool — reset any
     // user-applied rotation/offset so they don't bleed across tools.
@@ -8022,7 +8087,7 @@
     const flyoutEl = document.getElementById('flyout');
     if (!flyoutEl || flyoutEl.hidden || !flyoutEl.classList.contains('tool-menu')) return;
     if (flyoutEl.contains(e.target) || e.target.closest('.tool-group-btn')) return;
-    flyoutEl.hidden = true;
+    _hideFlyoutAnimated(flyoutEl);
   });
 
   function setAutoBusy(isBusy) {
@@ -12090,7 +12155,26 @@
       if (typeof x !== 'number' || typeof z !== 'number') continue;
       const normalizedKind = kind || null;
       const normalizedFloors = floors || 1;
-      const normalizedTerrainFloors = terrainFloors || (data.v === 3 ? 1 : (normalizedKind ? 1 : normalizedFloors));
+      let normalizedTerrainFloors = terrainFloors || (data.v === 3 ? 1 : (normalizedKind ? 1 : normalizedFloors));
+      // Houses-on-stilts guard: any built / man-made / planted kind that
+      // doesn't naturally sit on raised stone gets clamped to flat
+      // ground.  Rock is the only kind permitted to ride elevation (it
+      // reads as a mountain outcrop, not a table-top).  This catches both
+      // AI-generated worlds (where the LLM sometimes emits
+      // {kind:'house', terrainFloors:5}) and stale imports from the
+      // earlier procedural generator that didn't enforce the rule.
+      const FLAT_REQUIRED = new Set([
+        'house','fence','bridge','tree','tuft','flower','bush','cow','sheep',
+        'crop','corn','wheat','pumpkin','carrot','sunflower',
+      ]);
+      if (normalizedKind && FLAT_REQUIRED.has(normalizedKind) && normalizedTerrainFloors > 1) {
+        normalizedTerrainFloors = 1;
+      }
+      // Paths and farmland (dirt under crops) are also intrinsically flat.
+      const flatTerrain = (terrain === 'path' || terrain === 'dirt');
+      if (flatTerrain && normalizedTerrainFloors > 1) {
+        normalizedTerrainFloors = 1;
+      }
       const normalizedExtras = Array.isArray(extras)
         ? extras.map(e => ({
             kind: e.kind || e.k || null,
@@ -13371,7 +13455,6 @@
         let bgHex = bgColorForTod(todMinutes);
         if (wx.tint != null) bgHex = lerpColor(bgHex, wx.tint, 0.30);
         if (scene && scene.background) scene.background.setHex(bgHex);
-        if (scene && scene.fog && scene.fog.color) scene.fog.color.setHex(bgHex);
         if (renderer && renderer.setClearColor) renderer.setClearColor(bgHex, 1);
         // Drive the CSS --bg variable so the page chrome around the
         // canvas (vignette, body backdrop) follows the same colour.
